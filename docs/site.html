@@ -631,13 +631,13 @@ function ringSvg(color, kind, v) {
 }
 function drawPanel() {
   const P = PAGES[page], face = $("face"), v = RESTS[page];
-  const cell = i => `<button class="knob" data-k="${i}" aria-pressed="${i === knob}" aria-label="${P.knobs[i][0]}">${ringSvg(P.c, P.knobs[i][2], v[i])}<span>${P.knobs[i][0].replace(">", "→ ")}</span></button>`;
+  const cell = i => `<button class="knob" data-k="${i}" aria-pressed="${i === knob}" aria-label="${P.knobs[i][0]}">${ringSvg(P.c, P.knobs[i][2], v[i])}<span>${P.knobs[i][0].replace(/^>/, "→ ").replace(">", " → ")}</span></button>`;
   const btn = (b, col) => `<div class="btn" style="border-color:${col || "rgba(236,238,244,.12)"}">${b}</div>`;
   face.innerHTML = cell(0) + btn("B1", "#2060ff") + cell(1) + cell(2) + btn("B2", P.hold ? null : P.c) + cell(3) + cell(4) + btn("B3", P.hold ? P.c : null) + cell(5);
   face.querySelectorAll(".knob").forEach(b => b.onclick = () => { knob = +b.dataset.k; drawPanel(); });
   const k = P.knobs[knob];
   $("help").innerHTML = `<div class="tag" style="color:${P.c}">${P.id}${P.hold ? " · hold B3" : " page"}</div>
-    <div class="name">${k[0].replace(">", "→ ")}</div><div class="where">${POS[knob]}</div><p>${k[1]}</p>`;
+    <div class="name">${k[0].replace(/^>/, "→ ").replace(">", " → ")}</div><div class="where">${POS[knob]}</div><p>${k[1]}</p>`;
   [...$("pageTabs").children].forEach((b, i) => b.setAttribute("aria-pressed", i === page));
 }
 PAGES.forEach((P, i) => {
