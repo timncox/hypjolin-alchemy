@@ -1,0 +1,19 @@
+# First boot = the engine defaults: the Benjolin's filtered PWM on J9, XOR
+# on J10, the rungler on J7 and the Hypster's X on J8, both moving.
+pot 1 0.66
+pot 2 0.45
+pot 3 0.25
+pot 4 0.35
+pot 5 0.40
+pot 6 0.5
+wait 2500
+expect booted
+expect led b2 blue
+mark
+wait 2000
+expect rms > 0.1
+expect finite
+expect unclipped
+expect cvrange 7 > 0.5
+expect cvrange 8 > 0.5
+expect alive

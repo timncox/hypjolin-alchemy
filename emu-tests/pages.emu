@@ -1,0 +1,28 @@
+# B2 cycles Jolin (blue) -> Filter (cyan) -> Hyp (purple) -> Patch (amber);
+# B3 held shows Depth (green); B1 is the LOOP switch (B1 cyan when on).
+wait 2500
+expect led b2 blue
+tap b2
+wait 300
+expect led b2 rgb 10 58 77
+tap b2
+wait 300
+expect led b2 purple
+tap b2
+wait 300
+expect led b2 amber
+press b3
+wait 300
+expect led b2 green
+release b3
+wait 300
+tap b2
+wait 300
+expect led b2 blue
+tap b1
+wait 300
+expect led b1 rgb 4 30 34
+tap b1
+wait 300
+expect led b1 blue
+expect finite

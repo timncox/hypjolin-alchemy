@@ -1,0 +1,55 @@
+# The Hypster at audio rate on both outs; GAIN down + DAMP up stops it;
+# GAIN/DAMP back plus a kick (B3 + B1) restarts it.
+# (A pot takes over only once it crosses the stored value, so each move
+# sweeps 1 -> 0 first.)
+wait 2500
+# Filter page: OUT L and OUT R to X (the first option)
+tap b2
+wait 300
+pot 5 1
+pot 6 1
+wait 300
+pot 5 0
+pot 6 0
+wait 300
+pot 5 0.02
+pot 6 0.02
+wait 200
+# Hyp page: RATE up to ~1 kHz
+tap b2
+wait 300
+pot 1 1
+wait 300
+pot 1 0
+wait 300
+pot 1 0.86
+wait 1500
+mark
+wait 1000
+expect rms > 0.05
+expect finite
+expect unclipped
+# GAIN to the bottom, DAMP to the top: the ring stops
+pot 3 1
+wait 300
+pot 3 0
+pot 4 0
+wait 300
+pot 4 1
+wait 2500
+mark
+wait 1000
+expect rms < 0.01
+# GAIN/DAMP back and a kick: alive again
+pot 4 0.35
+pot 3 0.45
+wait 300
+press b3
+wait 50
+tap b1
+release b3
+wait 2000
+mark
+wait 1000
+expect rms > 0.05
+expect finite

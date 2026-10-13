@@ -1,0 +1,70 @@
+# J3 is 1 V/oct on osc A; J1 into the filter (INPUT = Ext).
+# (A pot takes over only once it crosses the stored value, so each move
+# sweeps 1 -> 0 first.)
+wait 2500
+# Jolin page: RUN>A off so the rungler leaves osc A alone
+pot 3 1
+wait 300
+pot 3 0
+wait 300
+# Depth page (hold B3): Osc A cv to noon (off)
+press b3
+wait 300
+pot 1 1
+wait 300
+pot 1 0
+wait 300
+pot 1 0.5
+wait 200
+release b3
+wait 200
+# Filter page: OUT L/R = Triangle A (option 5 of 12)
+tap b2
+wait 300
+pot 5 1
+pot 6 1
+wait 300
+pot 5 0
+pot 6 0
+wait 300
+pot 5 0.375
+pot 6 0.375
+wait 1000
+# osc A at 0.66 = 0.03 * 2^11.88 = 113 Hz
+print tone 113 226
+expect tone 113 > 0.1
+expect tone 226 < 0.05
+cv 3 1
+wait 1000
+print tone 113 226
+expect tone 226 > 0.1
+expect tone 113 < 0.05
+cv 3 0
+# INPUT = Ext (J1), OUT L/R = Lopass, CUTOFF up, RESO down;
+# a 220 Hz buzz at J1 comes through
+pot 3 1
+wait 300
+pot 3 0
+wait 300
+pot 3 0.21
+pot 5 0
+pot 6 0
+wait 300
+pot 5 0.96
+pot 6 0.96
+pot 1 0
+wait 300
+pot 1 1
+wait 300
+pot 1 0.85
+pot 2 1
+wait 300
+pot 2 0
+sing 220
+wait 1000
+mark
+wait 500
+print tone 220
+expect tone 220 > 0.05
+expect finite
+expect unclipped
