@@ -1,4 +1,5 @@
 // Native checks for the Hypjolin engine.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -20,28 +21,30 @@ static float Crossings(const std::vector<float>& s) {
   return c * kSampleRate / s.size();
 }
 
-// Largest Lyapunov exponent of the Hypster ring, by two nearby copies.
-static float Lyapunov(float hz, float g, float d, float shape, bool symm) {
-  Hypster a, b; a.Reset(); b.Reset();
-  for (int i = 0; i < 48000 * 4; ++i) { a.Process(hz, g, d, shape, symm); b.Process(hz, g, d, shape, symm); }
-  b.Kick(1e-4f);
-  double sum = 0; int n = 0;
-  for (int blk = 0; blk < 400; ++blk) {
-    for (int i = 0; i < 480; ++i) { a.Process(hz, g, d, shape, symm); b.Process(hz, g, d, shape, symm); }
-    float dx[4] = {b.x() - a.x(), b.y() - a.y(), b.z() - a.z(), b.u() - a.u()};
-    double dd = std::sqrt(double(dx[0]) * dx[0] + dx[1] * dx[1] + dx[2] * dx[2] + dx[3] * dx[3]);
-    sum += std::log(std::max(dd, 1e-12) / 1e-4); ++n;
-    // Re-seed b near a (copy a, then nudge).
-    b = a; b.Kick(1e-4f);
+// Distinct peak heights of x (quantised to 50 mV) over 8 s: a periodic
+// orbit repeats a handful of peaks, a chaotic one keeps finding new ones.
+// (A two-copy divergence test is unreliable here: a 1e-6 nudge is below
+// float resolution at several volts.)
+static int PeakVariety(float hz, float gk, float dk, float shape, bool symm) {
+  Hypster h; h.Reset();
+  for (int i = 0; i < 48000 * 2; ++i) h.Process(hz, GainValue(gk), DampValue(dk), shape, symm);
+  std::vector<int> q; float p1 = 0, p2 = 0;
+  for (int i = 0; i < 48000 * 8; ++i) {
+    h.Process(hz, GainValue(gk), DampValue(dk), shape, symm);
+    const float x = h.x();
+    if (i > 1 && p1 > p2 && p1 >= x) q.push_back(int(std::lround(p1 * 20)));
+    p2 = p1; p1 = x;
   }
-  return float(sum / n);  // nats per 10 ms block
+  std::sort(q.begin(), q.end());
+  q.erase(std::unique(q.begin(), q.end()), q.end());
+  return int(q.size());
 }
 
 static void TestMappings() {
   CHECK(std::fabs(OscHz(0) - 0.03f) < 1e-4f, "OscHz(0)");
   CHECK(std::fabs(OscHz(1) / OscHz(0) - 262144.f) < 1.f, "18 octaves");
   CHECK(std::fabs(CutoffHz(1) - 20480.f) < 1.f, "cutoff top");
-  CHECK(std::fabs(RateHz(1) - 6553.6f) < 0.1f, "rate top");
+  CHECK(std::fabs(RateHz(1) - 1310.72f) < 0.1f, "rate top");
   CHECK(GainValue(0) == 0.25f && GainValue(1) == 3.f, "gain range");
   CHECK(DampValue(0) == 0.f && DampValue(1) == 2.f, "damp range");
 }
@@ -101,7 +104,7 @@ static void TestHypster() {
     Hypster h; h.Reset();
     float mx = 0; int railed = 0;
     for (int i = 0; i < 48000 * 6; ++i) {
-      h.Process(100, GainValue(0.45f), DampValue(0.35f), 0.5f, true);
+      h.Process(100, GainValue(Params().gain), DampValue(Params().damp), 0.5f, true);
       float m = std::max(std::max(std::fabs(h.x()), std::fabs(h.y())), std::max(std::fabs(h.z()), std::fabs(h.u())));
       if (i > 48000) { mx = std::max(mx, m); if (m > 10.9f) ++railed; }
     }
@@ -118,20 +121,28 @@ static void TestHypster() {
     CHECK(railed < 48000 * 3 / 20, "DAMP 0 mostly off the rails (%d)", railed);
   }
   // RATE readout tracks the fundamental (within 25 %) across the range.
-  for (float k : {0.3f, 0.5f, 0.7f, 0.9f}) {
+  for (float k : {0.3f, 0.5f, 0.7f, 0.9f, 1.0f}) {
     Hypster h; h.Reset();
     const float hz = RateHz(k);
-    for (int i = 0; i < 48000; ++i) h.Process(hz, GainValue(0.45f), DampValue(0.35f), 0.5f, true);
+    const Params d;
+    for (int i = 0; i < 48000; ++i) h.Process(hz, GainValue(d.gain), DampValue(d.damp), d.shape, d.symm);
     int n = int(std::max(96000.f, 48000.f * 40.f / hz));
     std::vector<float> xs(n);
-    for (int i = 0; i < n; ++i) { h.Process(hz, GainValue(0.45f), DampValue(0.35f), 0.5f, true); xs[i] = h.x(); }
+    for (int i = 0; i < n; ++i) { h.Process(hz, GainValue(d.gain), DampValue(d.damp), d.shape, d.symm); xs[i] = h.x(); }
     float r = Crossings(xs) / hz;
     CHECK(r > 0.75f && r < 1.25f, "rate %.1f Hz: x at %.2f of it", hz, r);
   }
-  // Chaos: the default (symmetric) is chaotic; low GAIN + high DAMP dies.
+  // Chaos: the default is chaotic at slow, mid and audio rates; the old
+  // default (GAIN 1.49, DAMP 0.70) is a period-4 orbit, which the measure
+  // must be able to tell apart.
   {
-    float l = Lyapunov(50, GainValue(0.45f), DampValue(0.35f), 0.5f, true);
-    CHECK(l > 0.05f, "default chaotic, lyapunov %.3f / block", l);
+    const Params d;
+    for (float hz : {20.f, 100.f, 1000.f}) {
+      int v = PeakVariety(hz, d.gain, d.damp, d.shape, d.symm);
+      CHECK(v > 50, "default chaotic at %.0f Hz (%d peak heights)", hz, v);
+    }
+    int per = PeakVariety(100, 0.45f, 0.35f, 0.5f, true);
+    CHECK(per < 10, "GAIN 1.49 / DAMP 0.70 is periodic (%d peak heights)", per);
     Hypster h; h.Reset(); float mx = 0;
     for (int i = 0; i < 48000 * 4; ++i) { h.Process(100, GainValue(0.f), DampValue(1.f), 0.5f, true); if (i > 48000 * 3) mx = std::max(mx, std::fabs(h.x())); }
     CHECK(mx < 0.05f, "low gain, high damp: stops (%.3f)", mx);

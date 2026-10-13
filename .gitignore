@@ -3,3 +3,4 @@ build-bench/
 test/bin/
 *.o
 .DS_Store
+.claude/

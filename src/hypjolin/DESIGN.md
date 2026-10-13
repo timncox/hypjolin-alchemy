@@ -46,7 +46,9 @@ to fill a gap or fit the Lab.
 - **DEPTH** [circuit]: the panel's six "cv" attenuators, made bipolar
   [invented]. A full-scale source at full DEPTH is 5 V at the input.
 - **Defaults** [invented]: X → osc A at 0.3, Y → filter at 0.25, rungler →
-  rate at 0.3, so it moves the moment it boots.
+  rate at 0.3, so it moves the moment it boots. HYP starts at GAIN 1.76,
+  DAMP 0.20, inside the chaotic region at every rate (the first default,
+  1.49 / 0.70, turned out to be a period-4 orbit).
 - **OUT L / OUT R** [invented]: J9/J10 play any of the twelve outputs
   (default Lopass and XOR), at 0.8 of full scale.
 
@@ -115,20 +117,23 @@ integrators in a ring, x → u → z → y → x, closed through −X'.
   Lyapunov exponent. At K = 2 with SYMM on, most of GAIN 0.5–3 × DAMP
   0.25–2 is chaotic with periodic islands; low GAIN with high DAMP stops it.
   Half-wave (SYMM off) is mostly periodic.
-- **RATE** [circuit: exponential]: 0.05 Hz–6.5 kHz, calibrated so the X
-  output's fundamental at the default GAIN/DAMP matches the readout (within
-  25 % across the range, test_hypjolin). FINE ±half an octave. GAIN 0.25–3,
+- **RATE** [circuit: exponential]: 0.02 Hz–1.3 kHz, calibrated so X's
+  crossing rate at the default GAIN/DAMP matches the readout (within 25 %
+  across the range, test_hypjolin). The top is set by the integrator: steps
+  over 0.03 change the orbit itself, and 1.3 kHz already takes 20 RK2
+  substeps per sample (CPU on the module unmeasured). FINE ±half an octave. GAIN 0.25–3,
   DAMP 0–2, both linear [circuit: "Gain and Damping have linear CV
   response"].
-- Integration: RK2 (midpoint), up to 12 substeps per sample at high rates.
+- Integration: RK2 (midpoint), steps of at most 0.03 (normalised time), up
+  to 20 substeps per sample at the top of RATE.
   A 1e-4 noise floor lets it restart (as circuit noise would).
 
 ## Tests
 
 - `make -C test` — 48 native checks (ASan + UBSan): mappings, rungler
   shift/DAC, LOOP locking vs LOOP off, Hypster bounded/alive/off-the-rails,
-  the limiter at DAMP 0, RATE calibration, chaos (positive Lyapunov) at the
-  default, stopping and restarting, SYMM changing the orbit, the patch (X
+  the limiter at DAMP 0, RATE calibration, chaos at the default (peak-height
+  variety at 20 Hz / 100 Hz / 1 kHz, and a known periodic setting told apart), stopping and restarting, SYMM changing the orbit, the patch (X
   moving osc A), 1 V/oct, the J2 clock, EXT through the filter, finite at
   every corner.
 - `make -C <alchemy-lab>/emu test-custom FW=custom FW_DIR=<this repo>` — 5

@@ -40,7 +40,7 @@ struct Params {
   float drive = 0.35f;
   // Hypster
   float rate = 0.30f, fine = 0.5f;         // fine: ±half an octave
-  float gain = 0.45f, damp = 0.35f;        // GAIN 0.25..3, DAMP 0..2
+  float gain = 0.55f, damp = 0.10f;        // GAIN 0.25..3, DAMP 0..2 (1.76 / 0.20: chaotic)
   float shape = 0.5f;                      // 0 slim .. 1 fat
   bool symm = true;
   // The patchbay: one source and a bipolar amount (-1..1) per input.
@@ -60,7 +60,7 @@ constexpr float kPatchVolts = 5.f;
 // Knob → value mappings (exposed for the tests and the UI readouts).
 float OscHz(float knob);           // 0.03 Hz · 2^(18·knob)
 float CutoffHz(float knob);        // 20 Hz · 2^(10·knob)
-float RateHz(float knob);          // 0.05 Hz · 2^(17·knob)
+float RateHz(float knob);          // 0.02 Hz · 2^(16·knob): to 1.3 kHz
 float GainValue(float knob);       // 0.25 .. 3
 float DampValue(float knob);       // 0 .. 2
 

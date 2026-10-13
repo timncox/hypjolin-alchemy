@@ -38,19 +38,23 @@ constexpr float kLoop = 2.f;
 constexpr float kDampZ = 1.f, kDampY = 47.f / 220.f, kDampX = 47.f / 330.f;
 constexpr float kShapeDepth = 0.5f;
 // The optional limiter (D2..D4): past ±9 V a stage is pulled back hard, so
-// the ring stays off the rails rather than latching there.
+// the ring stays off the rails rather than latching there. Stiff: it needs
+// kMaxStep · kLimitPull under 2, which 0.03 · 60 is.
 constexpr float kLimitAt = 9.f, kLimitPull = 60.f;
-// Normalised time per second at rate 1 Hz: the ring's fundamental near the
+// Normalised time per second at rate 1 Hz: X's crossing rate at the
 // default GAIN/DAMP lands close to the RATE readout (measured, test_hypjolin).
-constexpr float kRateScale = 10.8f;
-constexpr float kMaxStep = 0.03f;  // RK2 step bound, normalised time
-constexpr int kMaxSub = 12;
+constexpr float kRateScale = 21.f;
+// RK2 step bound, normalised time. Larger steps change the orbit itself
+// (the attractor drifts with RATE), so the top of RATE is set by how many
+// substeps fit: 1.3 kHz needs 20.
+constexpr float kMaxStep = 0.03f;
+constexpr int kMaxSub = 20;
 
 }  // namespace
 
 float OscHz(float k) { return 0.03f * Exp2(18.f * Clamp(k, 0.f, 1.f)); }
 float CutoffHz(float k) { return 20.f * Exp2(10.f * Clamp(k, 0.f, 1.f)); }
-float RateHz(float k) { return 0.05f * Exp2(17.f * Clamp(k, 0.f, 1.f)); }
+float RateHz(float k) { return 0.02f * Exp2(16.f * Clamp(k, 0.f, 1.f)); }
 float GainValue(float k) { return 0.25f + 2.75f * Clamp(k, 0.f, 1.f); }
 float DampValue(float k) { return 2.f * Clamp(k, 0.f, 1.f); }
 
@@ -132,7 +136,7 @@ void Engine::Process(const Params& p, const float* ext_in, const float* clk_in,
   const float base_a = 18.f * Clamp(p.osc_a, 0, 1);
   const float base_b = 18.f * Clamp(p.osc_b, 0, 1);
   const float base_f = 10.f * Clamp(p.cutoff, 0, 1);
-  const float base_r = 17.f * Clamp(p.rate, 0, 1) + (Clamp(p.fine, 0, 1) - 0.5f);
+  const float base_r = 16.f * Clamp(p.rate, 0, 1) + (Clamp(p.fine, 0, 1) - 0.5f);  // octaves above 0.02 Hz
   const float gain0 = GainValue(p.gain), damp0 = DampValue(p.damp);
   const float shape = Clamp(p.shape, 0, 1);
   // LOOP offset: ±1.5 at the ends, past the triangle's ±1, so the
@@ -152,7 +156,7 @@ void Engine::Process(const Params& p, const float* ext_in, const float* clk_in,
     hz_a_ = Clamp(0.03f * Exp2(base_a + 5.f * p.run_a * rung + v[kDestOscA]), 0.01f, 16000.f);
     hz_b_ = Clamp(0.03f * Exp2(base_b + 5.f * p.run_b * rung + v[kDestOscB]), 0.01f, 16000.f);
     hz_f_ = Clamp(20.f * Exp2(base_f + 6.f * p.run_f * rung + v[kDestFilter]), 10.f, 20000.f);
-    hz_r_ = Clamp(0.05f * Exp2(base_r + v[kDestRate]), 0.005f, 8000.f);
+    hz_r_ = Clamp(0.02f * Exp2(base_r + v[kDestRate]), 0.002f, 1400.f);
     const float gain = Clamp(gain0 + 0.3f * v[kDestGain], 0.f, 3.5f);
     const float damp = Clamp(damp0 + 0.2f * v[kDestDamp], 0.f, 2.5f);
 

@@ -179,7 +179,7 @@ static VirtualKnob out_r = VirtualKnob(kPotBottomRight, "Out R")
 /* HYP */
 static VirtualKnob rate = VirtualKnob(kPotTopLeft, "Rate")
     .Linear(0.f, 1.f).Ident("rate")
-    .Help("The Hypster's overall rate, exponential: 0.05 Hz to 6.5 kHz.")
+    .Help("The Hypster's overall rate, exponential: 0.02 Hz to 1.3 kHz.")
     .Ring(Level(kPurple));
 static VirtualKnob fine = VirtualKnob(kPotTopRight, "Fine")
     .Linear(0.f, 1.f).Ident("fine")
@@ -494,7 +494,7 @@ static void OnRender(uint32_t t_ms)
 
     const uint8_t page = pager.Page();
     LedPanel::Rgb b1 = extras.loop ? scaled(kCyan, 0.35f + 0.65f * G_RUNG)
-                                   : scaled(kBlue, 0.05f + 0.6f * G_RUNG);
+                                   : scaled(kBlue, 0.15f + 0.5f * G_RUNG);
     if (b1.r < kIdle.r && b1.g < kIdle.g && b1.b < kIdle.b) b1 = kIdle;
     L.SetButtonPair(kButtonB1, L.ScaleGlobal(b1));
 
