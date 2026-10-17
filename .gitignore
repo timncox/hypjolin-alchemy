@@ -4,3 +4,4 @@ test/bin/
 *.o
 .DS_Store
 .claude/
+CLAUDE.md
