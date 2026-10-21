@@ -730,6 +730,7 @@ int main(void)
 
 #ifdef HYPJOLIN_RATE_DIAG
     RunRateDiag();
+    (void)AudioCallback;
     hw.StartAudio(SilentCallback);
 #else
     hw.StartAudio(AudioCallback);

@@ -7,19 +7,20 @@ namespace hypjolin {
 
 namespace {
 
-inline float Clamp(float v, float lo, float hi) { return std::min(std::max(v, lo), hi); }
+// fmin/fmax are single VMINNM/VMAXNM on the M7 (std::min/max compiled to a
+// compare, an FPSCR read and a branch). Same values; a NaN clamps to lo.
+inline float Clamp(float v, float lo, float hi) { return std::fmin(std::fmax(v, lo), hi); }
 
 // exp2 for the per-sample frequency maths: std::exp2 is fine on the H7's FPU
 // at these call counts (four per sample).
 inline float Exp2(float v) { return std::exp2(v); }
 
 // Dead zone: zero inside ±t, slope 1 outside (a back-to-back zener pair).
-inline float DeadZone(float v, float t) {
-  float a = std::fabs(v) - t;
-  return a > 0 ? std::copysign(a, v) : 0.f;
-}
+// Written as v - clamp(v, ±t), branchless: the Hypster calls it up to 160
+// times a sample, and the compare-and-branch form stalled the M7 on FPSCR.
+inline float DeadZone(float v, float t) { return v - std::fmin(std::fmax(v, -t), t); }
 // One-sided breakpoint (a diode in series with one zener).
-inline float Above(float v, float t) { return v > t ? v - t : 0.f; }
+inline float Above(float v, float t) { return std::fmax(v - t, 0.f); }
 
 constexpr float kZener = 5.4f;  // 4.7 V zener + a diode drop
 
@@ -64,14 +65,20 @@ void Hypster::Reset() {
   s_[0] = 0.3f; s_[1] = 0.1f; s_[2] = -0.2f; s_[3] = 0.05f;
 }
 
-void Hypster::Deriv(const float* q, float* dq) const {
-  const float nx = -q[0];  // -X' closes the ring
-  const float d = symm_ ? nx : std::max(nx, 0.f);  // SYMM: D9 in or out
-  dq[3] = kLoop * g_ * Nl1(nx) - b_ * q[3];
-  dq[2] = kLoop * Nl2(q[3]) - kDampZ * q[2];
-  dq[1] = kLoop * Nl3(q[2] * 0.5f) - kDampY * q[1] + (1.f - shape_) * d * kShapeDepth;
-  dq[0] = kLoop * Nl4(q[1] * 0.5f) - kDampX * q[0] + shape_ * d * kShapeDepth;
-  for (int i = 0; i < 4; ++i) dq[i] -= kLimitPull * DeadZone(q[i], kLimitAt);
+// The hot path: 40 calls a sample at the top of RATE. Inlined, reading q
+// once into locals (q and dq never alias), so nothing is stored and
+// re-loaded between the four lines.
+__attribute__((always_inline)) inline void Hypster::Deriv(const float* __restrict q,
+                                                           float* __restrict dq) const {
+  const float q0 = q[0], q1 = q[1], q2 = q[2], q3 = q[3];
+  const float nx = -q0;  // -X' closes the ring
+  const float d = symm_ ? nx : std::fmax(nx, 0.f);  // SYMM: D9 in or out
+  dq[3] = kLoop * g_ * Nl1(nx) - b_ * q3 - kLimitPull * DeadZone(q3, kLimitAt);
+  dq[2] = kLoop * Nl2(q3) - kDampZ * q2 - kLimitPull * DeadZone(q2, kLimitAt);
+  dq[1] = kLoop * Nl3(q2 * 0.5f) - kDampY * q1 + (1.f - shape_) * d * kShapeDepth -
+          kLimitPull * DeadZone(q1, kLimitAt);
+  dq[0] = kLoop * Nl4(q1 * 0.5f) - kDampX * q0 + shape_ * d * kShapeDepth -
+          kLimitPull * DeadZone(q0, kLimitAt);
 }
 
 void Hypster::Process(float rate_hz, float gain, float damp, float shape, bool symm) {
