@@ -27,6 +27,8 @@ LIBDAISY_DIR ?= lib/libDaisy
 
 ifeq ($(BENCH_USB),1)
 override BUILD_DIR := build-bench
+else ifeq ($(RATE_DIAG),1)
+override BUILD_DIR := build-diag
 else
 override BUILD_DIR := build
 endif
@@ -50,6 +52,11 @@ C_DEFS += -DHYPJOLIN_VERSION=\"$(HYPJOLIN_VERSION)\" -DHYPJOLIN_GIT_HASH=\"$(HYP
 
 ifeq ($(BENCH_USB),1)
 C_DEFS += -DHYPJOLIN_BENCH_USB
+endif
+# RATE_DIAG=1: time the engine across RATE at boot into /rate_diag.txt,
+# then run silent. A measuring tool, never a release.
+ifeq ($(RATE_DIAG),1)
+C_DEFS += -DHYPJOLIN_RATE_DIAG
 endif
 
 # ── Daisy bootloader build (BOOT_SRAM), as every Alchemy firmware ────────────

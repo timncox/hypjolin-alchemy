@@ -554,6 +554,70 @@ static void AudioCallback(daisy::AudioHandle::InputBuffer  in,
     cpu.OnBlockEnd();
 }
 
+/* ---- RATE cost diagnostic (make RATE_DIAG=1) -------------------------------
+ * Times engine.Process on the M7 at a ladder of RATE settings, before audio
+ * starts, and writes /rate_diag.txt. The budget for a 24-sample block at
+ * 48 kHz on a 480 MHz core is 240,000 cycles. Audio then runs a silent
+ * callback, so a saved RATE that overruns cannot freeze HostLink. */
+#ifdef HYPJOLIN_RATE_DIAG
+#include "ff.h"
+#include <stdio.h>
+
+alignas(32) ALCHEMY_SDMMC_BSS static FIL  s_diag_fil;
+alignas(32) ALCHEMY_SDMMC_BSS static char s_diag_txt[1024];
+
+static void RunRateDiag()
+{
+    CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
+    DWT->LAR = 0xC5ACCE55;
+    DWT->CYCCNT = 0;
+    DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+
+    static const float kRates[] = {0.f, 0.30f, 0.60f, 0.70f, 0.75f, 0.80f, 0.85f, 0.90f, 0.95f, 1.0f};
+    static float in0[kBlockSize], in1[kBlockSize], o0[kBlockSize], o1[kBlockSize];
+    int len = snprintf(s_diag_txt, sizeof s_diag_txt,
+                       "hypjolin rate diag %s, budget 240000 cyc/block\n"
+                       "rate   hz      avg_cyc  max_cyc  avg%%  max%%\n",
+                       HYPJOLIN_GIT_HASH);
+    for (float r : kRates)
+    {
+        static hj::Engine e;
+        e.Init();
+        hj::Params p;
+        p.rate = r;
+        uint32_t total = 0, worst = 0;
+        const int kBlocks = 400;
+        for (int b = 0; b < kBlocks; b++)
+        {
+            const uint32_t t0 = DWT->CYCCNT;
+            e.Process(p, in0, in1, o0, o1, hj::kSrcX, hj::kSrcY, (int)kBlockSize);
+            const uint32_t dt = DWT->CYCCNT - t0;
+            total += dt;
+            if (dt > worst) worst = dt;
+        }
+        const uint32_t avg = total / kBlocks;
+        len += snprintf(s_diag_txt + len, sizeof s_diag_txt - len,
+                        "%.2f  %7.1f  %7lu  %7lu  %4.0f  %4.0f\n", (double)r,
+                        (double)e.last_rate_hz(), (unsigned long)avg,
+                        (unsigned long)worst, avg / 2400.0, worst / 2400.0);
+    }
+    for (int tries = 0; tries < 50 && !sd.EnsureMounted(System::GetNow()); tries++)
+        System::Delay(20);
+    UINT bw = 0;
+    if (f_open(&s_diag_fil, "/rate_diag.txt", FA_WRITE | FA_CREATE_ALWAYS) == FR_OK)
+    {
+        f_write(&s_diag_fil, s_diag_txt, (UINT)len, &bw);
+        f_close(&s_diag_fil);
+    }
+}
+
+static void SilentCallback(daisy::AudioHandle::InputBuffer,
+                           daisy::AudioHandle::OutputBuffer out, size_t size)
+{
+    for (size_t i = 0; i < size; i++) { out[0][i] = 0.f; out[1][i] = 0.f; }
+}
+#endif
+
 /* ---- boot ------------------------------------------------------------------ */
 
 int main(void)
@@ -664,7 +728,12 @@ int main(void)
     extras.cpu_avg  = 0.0f;
     g_readout_until = System::GetNow() + 2500u;
 
+#ifdef HYPJOLIN_RATE_DIAG
+    RunRateDiag();
+    hw.StartAudio(SilentCallback);
+#else
     hw.StartAudio(AudioCallback);
+#endif
     cpu.Reset();
 
     loop.Use(pager)
