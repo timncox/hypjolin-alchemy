@@ -1,0 +1,40 @@
+# Exactly three pages on B2: Jolin (blue) -> Filter (cyan) -> Patch (amber)
+# -> Jolin again. Holding B3 is no shift page (a tap re-seeds the rungler and
+# leaves the page alone). B1 is the LOOP switch (B1 cyan when on).
+wait 2500
+expect led b2 blue
+tap b2
+wait 300
+expect led b2 rgb 10 58 77
+tap b2
+wait 300
+expect led b2 amber
+tap b2
+wait 300
+expect led b2 blue
+tap b2
+wait 300
+expect led b2 rgb 10 58 77
+tap b2
+wait 300
+tap b2
+wait 300
+expect led b2 blue
+press b3
+wait 400
+expect led b2 blue
+release b3
+wait 300
+tap b3
+wait 300
+expect led b2 blue
+tap b1
+wait 300
+expect led b1 rgb 4 30 34
+tap b1
+wait 300
+expect led b1 blue
+mark
+wait 1000
+expect rms > 0.05
+expect finite

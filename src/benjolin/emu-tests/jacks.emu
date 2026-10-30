@@ -1,0 +1,62 @@
+# J3 is 1 V/oct on osc A, the PATCH page moves it, J6 is a LOOP gate.
+# (A pot takes over only once it crosses the stored value, so each move
+# sweeps 1 -> 0 first.)
+wait 2500
+# Jolin page: RUN>A off so the rungler leaves osc A alone
+pot 3 1
+wait 300
+pot 3 0
+wait 300
+# Filter page: OUT L/R = Triangle A (zone 0 of 8)
+tap b2
+wait 300
+pot 5 1
+pot 6 1
+wait 300
+pot 5 0
+pot 6 0
+wait 300
+pot 5 0.06
+pot 6 0.06
+wait 300
+# Patch page: the Osc A row's amount to noon (off)
+tap b2
+wait 300
+pot 2 1
+wait 300
+pot 2 0
+wait 300
+pot 2 0.5
+wait 1000
+# osc A at 0.66 = 0.03 * 2^11.88 = 113 Hz
+print tone 113 226
+expect tone 113 > 0.1
+expect tone 226 < 0.05
+cv 3 1
+wait 1000
+print tone 113 226
+expect tone 226 > 0.1
+expect tone 113 < 0.05
+cv 3 0
+wait 500
+# Patch: Pulse B (zone 4 of 9) into osc A at +0.4 = +-2 octaves at osc B's
+# 8 Hz: osc A hops between 28 and 452 Hz, so 113 Hz goes away.
+pot 1 1
+wait 300
+pot 1 0
+wait 300
+pot 1 0.5
+pot 2 0.7
+wait 1500
+print tone 28 113 452
+expect tone 113 < 0.15
+expect tone 452 > 0.1
+expect finite
+# J6 high flips LOOP on (B1 cyan) while it is held
+expect led b1 blue
+cv 6 5
+wait 300
+expect led b1 rgb 4 30 34
+cv 6 0
+wait 300
+expect led b1 blue
