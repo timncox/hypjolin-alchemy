@@ -49,6 +49,10 @@ struct Params {
   // External CV into the same inputs, in volts, summed after the patch.
   float ext_cv[kNumDest] = {0, 0, 0, 0, 0, 0};
   bool ext_clock = false;                  // rungler clocked by ext edges, not osc B
+  // false: the Hypster is not run at all (X..U read 0, RATE/GAIN/DAMP and
+  // their patch inputs do nothing). The Benjolin-only build; Hypjolin
+  // leaves it true.
+  bool hypster = true;
 };
 
 // Per-input scaling: what one volt does at each destination.
@@ -87,6 +91,7 @@ class Rungler {
  public:
   void Reset() { reg_ = 0x5A; last_clk_ = false; }
   void Clock(bool clk, bool data);  // shift data in on a rising edge
+  void Seed(uint8_t bits) { reg_ = bits; }
   bool last_bit() const { return reg_ >> 7; }
   float Value() const;  // bits 5,6,7 → 0..1 in eighths (0, 1/7 .. 1)
   uint8_t reg() const { return reg_; }
@@ -108,6 +113,9 @@ class Engine {
   const Hypster& hyp() const { return hyp_; }
   const Rungler& rungler() const { return run_; }
   void KickHypster() { hyp_.Kick(0.5f); }
+  // Load the rungler's shift register (the Benjolin build's B3: a fresh
+  // pattern, which LOOP then holds).
+  void SeedRungler(uint8_t bits) { run_.Seed(bits); }
   // The frequencies the last sample used (for readouts and tests).
   float last_hz_a() const { return hz_a_; }
   float last_hz_b() const { return hz_b_; }

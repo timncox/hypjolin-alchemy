@@ -208,11 +208,15 @@ void Engine::Process(const Params& p, const float* ext_in, const float* clk_in,
     ic2_ = 2.f * v2 - ic2_;
     src_[kSrcLopass] = Clamp(v2, -1.5f, 1.5f);
 
-    hyp_.Process(hz_r_, gain, damp, shape, p.symm);
-    src_[kSrcX] = hyp_.x() * 0.1f;
-    src_[kSrcY] = hyp_.y() * 0.1f;
-    src_[kSrcZ] = hyp_.z() * 0.1f;
-    src_[kSrcU] = hyp_.u() * 0.1f;
+    if (p.hypster) {
+      hyp_.Process(hz_r_, gain, damp, shape, p.symm);
+      src_[kSrcX] = hyp_.x() * 0.1f;
+      src_[kSrcY] = hyp_.y() * 0.1f;
+      src_[kSrcZ] = hyp_.z() * 0.1f;
+      src_[kSrcU] = hyp_.u() * 0.1f;
+    } else {
+      src_[kSrcX] = src_[kSrcY] = src_[kSrcZ] = src_[kSrcU] = 0.f;
+    }
 
     // 0.8 of full scale (about ±4 V at the jacks), as Tally.
     if (out_l) out_l[i] = Clamp(0.8f * Source(src_l), -1.f, 1.f);
