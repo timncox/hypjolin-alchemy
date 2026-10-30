@@ -4,6 +4,8 @@
 #
 #   make libdaisy     build lib/libDaisy once after cloning
 #   make              build/hypjolin_alchemy.bin (BOOT_SRAM)
+#   make FW=benjolin  build-benjolin/<name>.bin: the Benjolin-only build
+#                     (src/benjolin; its name is set in src/benjolin/name.mk)
 #   make test         native engine suite (no hardware)
 #   make size         image size against the 480 KB SRAM region
 #   make stage        copy the .bin to ../daisy-sdk/alchemy-lab/ (never the card)
@@ -20,11 +22,26 @@
 # module attached in DFU (memory feedback_no_builds_with_board_in_dfu).
 # =============================================================================
 
-TARGET = hypjolin_alchemy
+# FW=hypjolin (the default) or FW=benjolin.
+FW ?= hypjolin
+ifeq ($(filter $(FW),hypjolin benjolin),)
+$(error FW must be hypjolin or benjolin (got '$(FW)'))
+endif
 
 ALCHEMY_DIR  ?= lib/alchemy-sdk
 LIBDAISY_DIR ?= lib/libDaisy
 
+ifeq ($(FW),benjolin)
+include src/benjolin/name.mk
+TARGET = $(BENJOLIN_TARGET)
+ifeq ($(BENCH_USB),1)
+override BUILD_DIR := build-benjolin-bench
+else
+override BUILD_DIR := build-benjolin
+endif
+CPP_SOURCES = src/benjolin/benjolin_alchemy.cpp src/hypjolin/hypjolin_engine.cpp src/common/picker.cpp
+else
+TARGET = hypjolin_alchemy
 ifeq ($(BENCH_USB),1)
 override BUILD_DIR := build-bench
 else ifeq ($(RATE_DIAG),1)
@@ -32,14 +49,15 @@ override BUILD_DIR := build-diag
 else
 override BUILD_DIR := build
 endif
-
 CPP_SOURCES = src/hypjolin/hypjolin_alchemy.cpp src/hypjolin/hypjolin_engine.cpp src/common/picker.cpp
+endif
 CPP_SOURCES += $(sort $(shell find $(ALCHEMY_DIR)/framework/src -name '*.cpp'))
 CPP_SOURCES += $(sort $(wildcard $(ALCHEMY_DIR)/hardware/alchemy-lab/v2/src/*.cpp))
 
 C_INCLUDES += \
     -Isrc/common \
     -Isrc/hypjolin \
+    -Isrc/benjolin \
     -I$(ALCHEMY_DIR)/framework/include \
     -I$(ALCHEMY_DIR)/hardware/include \
     -I$(ALCHEMY_DIR)/hardware/alchemy-lab/v2/include
@@ -50,8 +68,13 @@ HYPJOLIN_VERSION  := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
 HYPJOLIN_GIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 C_DEFS += -DHYPJOLIN_VERSION=\"$(HYPJOLIN_VERSION)\" -DHYPJOLIN_GIT_HASH=\"$(HYPJOLIN_GIT_HASH)\"
 
+ifeq ($(FW),benjolin)
+C_DEFS += -DBENJOLIN_TARGET=\"$(BENJOLIN_TARGET)\" -DBENJOLIN_PRODUCT=\"$(BENJOLIN_PRODUCT)\" \
+          -DBENJOLIN_VERSION=\"$(BENJOLIN_VERSION)\" -DBENJOLIN_GIT_HASH=\"$(HYPJOLIN_GIT_HASH)\"
+endif
+
 ifeq ($(BENCH_USB),1)
-C_DEFS += -DHYPJOLIN_BENCH_USB
+C_DEFS += -DHYPJOLIN_BENCH_USB -DBENJOLIN_BENCH_USB
 endif
 # RATE_DIAG=1: time the engine across RATE at boot into /rate_diag.txt,
 # then run silent. A measuring tool, never a release.
@@ -78,7 +101,8 @@ override LDFLAGS += -u _printf_float
 # flags: retire the object that bakes it in whenever HEAD moves.
 HASH_STAMP := $(BUILD_DIR)/.hash-$(HYPJOLIN_GIT_HASH)
 ifeq ($(wildcard $(HASH_STAMP)),)
-_HASH_GUARD := $(shell rm -f $(BUILD_DIR)/$(TARGET).o $(BUILD_DIR)/$(TARGET).d $(BUILD_DIR)/.hash-* 2>/dev/null; mkdir -p $(BUILD_DIR); touch $(HASH_STAMP))
+MAIN_OBJ := $(BUILD_DIR)/$(basename $(notdir $(firstword $(CPP_SOURCES))))
+_HASH_GUARD := $(shell rm -f $(MAIN_OBJ).o $(MAIN_OBJ).d $(BUILD_DIR)/.hash-* 2>/dev/null; mkdir -p $(BUILD_DIR); touch $(HASH_STAMP))
 endif
 
 # A linker-script change must relink (belt-alchemy's lesson).
