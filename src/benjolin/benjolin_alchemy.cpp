@@ -48,11 +48,8 @@
 #include "hypjolin_engine.h"
 #include "benjolin_map.h"
 
-#ifndef BENJOLIN_TARGET
-#define BENJOLIN_TARGET "benjolin_alchemy"
-#endif
-#ifndef BENJOLIN_PRODUCT
-#define BENJOLIN_PRODUCT "Benjolin"
+#if !defined(BENJOLIN_TARGET) || !defined(BENJOLIN_PRODUCT)
+#error "BENJOLIN_TARGET / BENJOLIN_PRODUCT come from src/benjolin/name.mk (make FW=benjolin)"
 #endif
 #ifndef BENJOLIN_VERSION
 #define BENJOLIN_VERSION "0.0.0"
