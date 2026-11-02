@@ -16,7 +16,7 @@ were invented.
 **Benjolin** (`make FW=benjolin`, `build-benjolin/`) is the same firmware
 with the Hypster taken out: the Benjolin alone on three pages (JOLIN,
 FILTER, and PATCH: a source and an amount into each of osc A, osc B and
-the filter). See `src/benjolin/DESIGN.md`. Its name is a working one, set
+the filter). See `src/benjolin/DESIGN.md`. Its name is set
 in `src/benjolin/name.mk`.
 
 MIT licence.
